@@ -15,9 +15,9 @@ function loadEventListeners() {
   // Add task event
   form.addEventListener('submit', addTask);
   // Remove task event
-  taskList.addEventListener('click', removeTasks);
-  // Clear task event
-  clearBtn.addEventListener('click', clearTasks);
+  taskList.addEventListener('click', removeTask);
+  // Clear task event undefined
+  // clearBtn.addEventListener('click', clearTasks);
   // Filter task events
   filter.addEventListener('keyup', filterTasks);
 }
