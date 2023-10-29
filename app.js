@@ -18,25 +18,35 @@ function loadEventListeners() {
   taskList.addEventListener('click', removeTasks);
   // Clear task event
   clearBtn.addEventListener('click', clearTasks);
-  // Filter task  events
+  // Filter task events
   filter.addEventListener('keyup', filterTasks);
 }
 
 // Get Tasks from API
-function getTasks() {
-  const userId = localStorage.getItem('userId');
+async function getTasks() {
+  let userId = localStorage.getItem('userId');
 
   if (!userId) {
-      userId = prompt('Please enter your user ID (a number between 1 and 10):');
-      if (userId >= 1 && userId <= 10) {
-          localStorage.setItem('userId', userId);
-      } else {
-          alert('User ID must be a number between 1 and 10.');
-          return;
-      }
+    userId = prompt('Please enter your user ID (a number between 1 and 10):');
+    if (userId >= 1 && userId <= 10) {
+      localStorage.setItem('userId', userId);
+    } else {
+      alert('User ID must be a number between 1 and 10.');
+      return;
+    }
   }
 
-  fetchData(userId, displayTasks);
+  try {
+    const response = await fetch(`https://jsonplaceholder.typicode.com/todos?userId=${userId}`);
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    const data = await response.json();
+    displayTasks(data);
+  } catch (error) {
+    console.error('Error fetching tasks:', error);
+    alert(error.description);
+  }
 }
 
 // Display Tasks on the page
@@ -44,85 +54,123 @@ function displayTasks(tasks) {
   taskList.innerHTML = '';
 
   tasks.forEach(function (task) {
-      const li = document.createElement('li');
-      li.className = 'collection-item';
-      li.appendChild(document.createTextNode(task.title));
-      
-      const deleteLink = document.createElement('a');
-      deleteLink.className = 'delete-item secondary-content';
-      deleteLink.innerHTML = '<i class="fa fa-remove"></i>';
-      deleteLink.addEventListener('click', () => removeTask(task.id));
-      
-      li.appendChild(deleteLink);
-      taskList.appendChild(li);
+    const li = document.createElement('li');
+    li.className = 'collection-item';
+    li.appendChild(document.createTextNode(task.title));
+
+    const deleteLink = document.createElement('a');
+    deleteLink.className = 'delete-item secondary-content';
+    deleteLink.innerHTML = '<i class="fa fa-remove"></i>';
+    deleteLink.addEventListener('click', () => removeTask(task.id));
+
+    li.appendChild(deleteLink);
+    taskList.appendChild(li);
   });
 }
 
-
 // Add a new task
-function addTask(e) {
+async function addTask(e) {
   e.preventDefault();
   const taskTitle = taskInput.value.trim();
 
   if (taskTitle) {
-      createNewTask(localStorage.getItem('userId'), taskTitle);
+    try {
+      const response = await createNewTask(localStorage.getItem('userId'), taskTitle);
+      if (response.ok) {
+        const newTask = await response.json();
+        displayNewTask(newTask);
+      } else {
+        alert('Failed to create a new task.');
+      }
+    } catch (error) {
+      console.error('Error creating a new task:', error);
+    }
   } else {
-      alert('Task title cannot be empty.');
+    alert('Task title cannot be empty.');
   }
 
   taskInput.value = '';
 }
 
+// Function to create a new task
+async function createNewTask(userId, title) {
+  const taskData = {
+    userId: userId,
+    title: title,
+    completed: false
+  };
 
-// Store Task
-function storeTaskInLocalStorage(task) {
-  let tasks;
-  if(localStorage.getItem('tasks') === null){
-    tasks = [];
-  } else {
-    tasks = JSON.parse(localStorage.getItem('tasks'));
-  } 
+  try {
+    const response = await fetch('https://jsonplaceholder.typicode.com/todos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(taskData)
+    });
+    return response;
+  } catch (error) {
+    console.error('Error creating a new task:', error);
+    throw error;
+  }
+}
 
-  tasks.push(task);
+// Display a new task on the page
+function displayNewTask(newTask) {
+  const li = document.createElement('li');
+  li.className = 'collection-item';
+  li.appendChild(document.createTextNode(newTask.title));
 
-  localStorage.setItem('tasks', JSON.stringify(tasks));
+  const deleteLink = document.createElement('a');
+  deleteLink.className = 'delete-item secondary-content';
+  deleteLink.innerHTML = '<i class="fa fa-remove"></i>';
+  deleteLink.addEventListener('click', () => removeTask(newTask.id));
+
+  li.appendChild(deleteLink);
+  taskList.appendChild(li);
 }
 
 // Remove a task
 function removeTask(taskId) {
   if (confirm('Are you sure you want to delete this task?')) {
+    try {
       deleteTask(taskId);
+    } catch (error) {
+      console.error('Error deleting the task:', error);
+    }
   }
 }
 
-// Clear Tasks
- function clearTasks() {
-  //taskList.innerHTML = '';
+// Function to delete a task
+async function deleteTask(taskId) {
+  try {
+    const response = await fetch(`https://jsonplaceholder.typicode.com/todos/${taskId}`, {
+      method: 'DELETE'
+    });
 
-  // Faster
-  while(taskList.firstChild){
-    taskList.removeChild(taskList.firstChild);
+    if (response.ok) {
+      // Handle the successful deletion (e.g., remove the task from the UI).
+      console.log('Task deleted:', taskId);
+    } else {
+      // Handle the case where the deletion request was not successful.
+      console.error('Failed to delete the task.');
+    }
+  } catch (error) {
+    console.error('Error deleting the task:', error);
   }
-      // Clear from LS
-    clearTasksFromLocalStorage();
- }
-
- // Clear from LS
- function clearTasksFromLocalStorage() {
-  localStorage.clear();
- }
+}
 
 // Filter Tasks
 function filterTasks(e) {
-    const text = e.target.value.toLowerCase();
-    const tasks = document.querySelectorAll('.collection-item');
+  const text = e.target.value.toLowerCase();
+  const tasks = document.querySelectorAll('.collection-item');
 
-    tasks.forEach(function (task) {
-        const item = task.firstChild.textContent.toLowerCase();
-        if (item.indexOf(text) != -1) {
-            task.style.display = 'block';
-        } else {
-            task.style.display = 'none';
-        }
-    });
+  tasks.forEach(function (task) {
+    const item = task.firstChild.textContent.toLowerCase();
+    if (item.indexOf(text) != -1) {
+      task.style.display = 'block';
+    } else {
+      task.style.display = 'none';
+    }
+  });
 }
